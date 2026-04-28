@@ -1,0 +1,23 @@
+{
+  "name": "455project",
+  "version": "1.0.0",
+  "description": "Contacts Book REST API — CSCE 455",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "npm install",
+    "docker:up": "docker-compose up --build -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0",
+    "vitest": "^2.1.9"
+  }
+}

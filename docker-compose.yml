@@ -1,0 +1,23 @@
+version: '3.9'
+
+services:
+  app:
+    build: .
+    container_name: contacts-api
+    ports:
+      - "3443:3443"
+    volumes:
+      - db-data:/app/data
+    environment:
+      PORT: 3443
+      DB_PATH: /app/data/contacts.db
+      CERT_PATH: /app/server.pem
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3443/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  db-data:
