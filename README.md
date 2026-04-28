@@ -1,6 +1,5 @@
 # Contacts Book API — ISTM 455
 
-[![Trivy Scan](https://github.com/khoitrn/455project/actions/workflows/trivy.yml/badge.svg)](https://github.com/khoitrn/455project/actions/workflows/trivy.yml)
 
 A full-stack Contacts Book web service with REST API, persistent database, and interactive UI. Deployed permanently on Cloudflare Workers + D1.
 
