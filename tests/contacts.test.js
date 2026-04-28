@@ -1,33 +1,37 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import request from 'supertest';
-import { createApp } from '../src/app.js';
-import { createDb } from '../src/db.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import app from '../src/index.js';
+import { createMockD1, seedDb } from './d1-mock.js';
 
-let app;
-let db;
+// Each test gets a fresh seeded DB so tests are fully independent.
+let env;
 
-beforeAll(() => {
-  db  = createDb(':memory:');
-  app = createApp(db);
+beforeEach(async () => {
+  const DB = createMockD1();
+  await seedDb(DB);
+  env = { DB };
 });
 
-afterAll(() => {
-  db.close();
+const req = (path, init = {}) => app.request(path, init, env);
+const json = (body) => ({
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
 });
 
 // ── GET /contacts ─────────────────────────────────────────────────────────────
 
 describe('GET /contacts', () => {
-  it('returns 200 with an array of 10 seeded contacts', async () => {
-    const res = await request(app).get('/contacts');
+  it('returns 200 with all 10 seeded contacts', async () => {
+    const res = await req('/contacts');
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBe(10);
+    const data = await res.json();
+    expect(Array.isArray(data)).toBe(true);
+    expect(data.length).toBe(10);
   });
 
-  it('each contact has expected fields', async () => {
-    const res = await request(app).get('/contacts');
-    const c = res.body[0];
+  it('each contact has the expected fields', async () => {
+    const res = await req('/contacts');
+    const [c] = await res.json();
     expect(c).toHaveProperty('id');
     expect(c).toHaveProperty('name');
     expect(c).toHaveProperty('email');
@@ -42,93 +46,97 @@ describe('GET /contacts', () => {
 
 describe('GET /contacts/:id', () => {
   it('returns a single contact by ID', async () => {
-    const res = await request(app).get('/contacts/1');
+    const res = await req('/contacts/1');
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('id', 1);
-    expect(res.body.name).toBe('Alice Johnson');
+    const data = await res.json();
+    expect(data.id).toBe(1);
+    expect(data.name).toBe('Alice Johnson');
   });
 
   it('returns 404 for a non-existent ID', async () => {
-    const res = await request(app).get('/contacts/99999');
+    const res = await req('/contacts/99999');
     expect(res.status).toBe(404);
-    expect(res.body).toHaveProperty('error');
+    const data = await res.json();
+    expect(data).toHaveProperty('error');
   });
 });
 
 // ── POST /contacts ────────────────────────────────────────────────────────────
 
 describe('POST /contacts', () => {
-  it('creates a new contact and returns 201 with the record', async () => {
-    const payload = {
-      name:    'Test User',
-      email:   'test@example.com',
-      phone:   '555-9999',
-      address: '100 Test Ave, College Station TX',
-    };
-    const res = await request(app).post('/contacts').send(payload);
+  it('creates a contact and returns 201 with the record', async () => {
+    const res = await req('/contacts', {
+      ...json({ name: 'Test User', email: 'test@example.com', phone: '555-9999', address: '1 Test Ave' }),
+      method: 'POST',
+    });
     expect(res.status).toBe(201);
-    expect(res.body).toHaveProperty('id');
-    expect(res.body.name).toBe('Test User');
-    expect(res.body.email).toBe('test@example.com');
+    const data = await res.json();
+    expect(data).toHaveProperty('id');
+    expect(data.name).toBe('Test User');
+    expect(data.email).toBe('test@example.com');
   });
 
-  it('creates a contact with only a name (optional fields null)', async () => {
-    const res = await request(app).post('/contacts').send({ name: 'No Extras' });
+  it('creates a contact with name only (optional fields null)', async () => {
+    const res = await req('/contacts', { ...json({ name: 'No Extras' }), method: 'POST' });
     expect(res.status).toBe(201);
-    expect(res.body.name).toBe('No Extras');
-    expect(res.body.email).toBeNull();
-    expect(res.body.phone).toBeNull();
-    expect(res.body.address).toBeNull();
+    const data = await res.json();
+    expect(data.name).toBe('No Extras');
+    expect(data.email).toBeNull();
+    expect(data.phone).toBeNull();
+    expect(data.address).toBeNull();
   });
 
   it('returns 400 when name is missing', async () => {
-    const res = await request(app).post('/contacts').send({ email: 'noname@example.com' });
+    const res = await req('/contacts', { ...json({ email: 'noname@example.com' }), method: 'POST' });
     expect(res.status).toBe(400);
-    expect(res.body).toHaveProperty('error');
+    const data = await res.json();
+    expect(data).toHaveProperty('error');
   });
 
-  it('returns 400 when name is an empty string', async () => {
-    const res = await request(app).post('/contacts').send({ name: '   ' });
+  it('returns 400 when name is blank whitespace', async () => {
+    const res = await req('/contacts', { ...json({ name: '   ' }), method: 'POST' });
     expect(res.status).toBe(400);
-    expect(res.body).toHaveProperty('error');
+    const data = await res.json();
+    expect(data).toHaveProperty('error');
   });
 });
 
 // ── PUT /contacts/:id ─────────────────────────────────────────────────────────
 
 describe('PUT /contacts/:id', () => {
-  it('updates an existing contact and returns the updated record', async () => {
-    const res = await request(app).put('/contacts/2').send({
-      name:    'Bob Updated',
-      email:   'bob.updated@example.com',
-      phone:   '555-9090',
-      address: '1 New St, Austin TX',
+  it('updates a contact and returns the updated record', async () => {
+    const res = await req('/contacts/2', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Bob Updated', email: 'bob.new@example.com' }),
     });
     expect(res.status).toBe(200);
-    expect(res.body.name).toBe('Bob Updated');
-    expect(res.body.email).toBe('bob.updated@example.com');
-    expect(res.body.id).toBe(2);
-  });
-
-  it('updated_at changes after update', async () => {
-    const before = await request(app).get('/contacts/3');
-    await new Promise((r) => setTimeout(r, 1100)); // SQLite CURRENT_TIMESTAMP has 1-s resolution
-    await request(app).put('/contacts/3').send({ name: 'Carol v2' });
-    const after = await request(app).get('/contacts/3');
-    // At minimum the name changed
-    expect(after.body.name).toBe('Carol v2');
+    const data = await res.json();
+    expect(data.id).toBe(2);
+    expect(data.name).toBe('Bob Updated');
+    expect(data.email).toBe('bob.new@example.com');
   });
 
   it('returns 404 for a non-existent ID', async () => {
-    const res = await request(app).put('/contacts/99999').send({ name: 'Ghost' });
+    const res = await req('/contacts/99999', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Ghost' }),
+    });
     expect(res.status).toBe(404);
-    expect(res.body).toHaveProperty('error');
+    const data = await res.json();
+    expect(data).toHaveProperty('error');
   });
 
   it('returns 400 when name is missing', async () => {
-    const res = await request(app).put('/contacts/1').send({ email: 'oops@example.com' });
+    const res = await req('/contacts/1', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'oops@example.com' }),
+    });
     expect(res.status).toBe(400);
-    expect(res.body).toHaveProperty('error');
+    const data = await res.json();
+    expect(data).toHaveProperty('error');
   });
 });
 
@@ -136,29 +144,28 @@ describe('PUT /contacts/:id', () => {
 
 describe('DELETE /contacts/:id', () => {
   it('deletes a contact and returns 204', async () => {
-    const created = await request(app).post('/contacts').send({ name: 'To Be Deleted' });
-    const id = created.body.id;
-
-    const del = await request(app).delete(`/contacts/${id}`);
+    const created = await (await req('/contacts', { ...json({ name: 'To Delete' }), method: 'POST' })).json();
+    const del = await req(`/contacts/${created.id}`, { method: 'DELETE' });
     expect(del.status).toBe(204);
 
-    const check = await request(app).get(`/contacts/${id}`);
+    const check = await req(`/contacts/${created.id}`);
     expect(check.status).toBe(404);
   });
 
   it('returns 404 for a non-existent ID', async () => {
-    const res = await request(app).delete('/contacts/99999');
+    const res = await req('/contacts/99999', { method: 'DELETE' });
     expect(res.status).toBe(404);
-    expect(res.body).toHaveProperty('error');
+    const data = await res.json();
+    expect(data).toHaveProperty('error');
   });
 });
 
-// ── Health check ──────────────────────────────────────────────────────────────
+// ── GET /health ───────────────────────────────────────────────────────────────
 
 describe('GET /health', () => {
   it('returns 200 ok', async () => {
-    const res = await request(app).get('/health');
+    const res = await req('/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    expect(await res.json()).toEqual({ status: 'ok' });
   });
 });

@@ -1,0 +1,8 @@
+name            = "455project"
+main            = "src/index.js"
+compatibility_date = "2024-04-28"
+
+[[d1_databases]]
+binding      = "DB"
+database_name = "contacts-db"
+database_id  = "99d0458f-af7c-4fa1-8c36-b0d6f6b2ee65"

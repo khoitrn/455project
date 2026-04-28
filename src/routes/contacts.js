@@ -1,59 +1,68 @@
-import { Router } from 'express';
+import { Hono } from 'hono';
 
-export function createContactsRouter(db) {
-  const router = Router();
+export const contacts = new Hono();
 
-  // GET /contacts
-  router.get('/', (_req, res) => {
-    const contacts = db.prepare('SELECT * FROM contacts ORDER BY id').all();
-    res.json(contacts);
-  });
+contacts.get('/', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM contacts ORDER BY id'
+  ).all();
+  return c.json(results);
+});
 
-  // GET /contacts/:id
-  router.get('/:id', (req, res) => {
-    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
-    if (!contact) return res.status(404).json({ error: 'Contact not found' });
-    res.json(contact);
-  });
+contacts.get('/:id', async (c) => {
+  const contact = await c.env.DB.prepare(
+    'SELECT * FROM contacts WHERE id = ?'
+  ).bind(c.req.param('id')).first();
+  if (!contact) return c.json({ error: 'Contact not found' }, 404);
+  return c.json(contact);
+});
 
-  // POST /contacts
-  router.post('/', (req, res) => {
-    const { name, email, phone, address } = req.body ?? {};
-    if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
+contacts.post('/', async (c) => {
+  let body = {};
+  try { body = await c.req.json(); } catch { /* empty body */ }
+  const { name, email, phone, address } = body;
+  if (!name?.trim()) return c.json({ error: 'name is required' }, 400);
 
-    const result = db.prepare(
-      'INSERT INTO contacts (name, email, phone, address) VALUES (?, ?, ?, ?)'
-    ).run(name.trim(), email ?? null, phone ?? null, address ?? null);
+  const result = await c.env.DB.prepare(
+    'INSERT INTO contacts (name, email, phone, address) VALUES (?, ?, ?, ?)'
+  ).bind(name.trim(), email ?? null, phone ?? null, address ?? null).run();
 
-    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(contact);
-  });
+  const contact = await c.env.DB.prepare(
+    'SELECT * FROM contacts WHERE id = ?'
+  ).bind(result.meta.last_row_id).first();
+  return c.json(contact, 201);
+});
 
-  // PUT /contacts/:id
-  router.put('/:id', (req, res) => {
-    const existing = db.prepare('SELECT id FROM contacts WHERE id = ?').get(req.params.id);
-    if (!existing) return res.status(404).json({ error: 'Contact not found' });
+contacts.put('/:id', async (c) => {
+  const existing = await c.env.DB.prepare(
+    'SELECT id FROM contacts WHERE id = ?'
+  ).bind(c.req.param('id')).first();
+  if (!existing) return c.json({ error: 'Contact not found' }, 404);
 
-    const { name, email, phone, address } = req.body ?? {};
-    if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
+  let body = {};
+  try { body = await c.req.json(); } catch { /* empty body */ }
+  const { name, email, phone, address } = body;
+  if (!name?.trim()) return c.json({ error: 'name is required' }, 400);
 
-    db.prepare(
-      `UPDATE contacts
-          SET name = ?, email = ?, phone = ?, address = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?`
-    ).run(name.trim(), email ?? null, phone ?? null, address ?? null, req.params.id);
+  await c.env.DB.prepare(
+    `UPDATE contacts
+        SET name = ?, email = ?, phone = ?, address = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?`
+  ).bind(name.trim(), email ?? null, phone ?? null, address ?? null, c.req.param('id')).run();
 
-    res.json(db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id));
-  });
+  const contact = await c.env.DB.prepare(
+    'SELECT * FROM contacts WHERE id = ?'
+  ).bind(c.req.param('id')).first();
+  return c.json(contact);
+});
 
-  // DELETE /contacts/:id
-  router.delete('/:id', (req, res) => {
-    const existing = db.prepare('SELECT id FROM contacts WHERE id = ?').get(req.params.id);
-    if (!existing) return res.status(404).json({ error: 'Contact not found' });
+contacts.delete('/:id', async (c) => {
+  const existing = await c.env.DB.prepare(
+    'SELECT id FROM contacts WHERE id = ?'
+  ).bind(c.req.param('id')).first();
+  if (!existing) return c.json({ error: 'Contact not found' }, 404);
 
-    db.prepare('DELETE FROM contacts WHERE id = ?').run(req.params.id);
-    res.status(204).end();
-  });
-
-  return router;
-}
+  await c.env.DB.prepare('DELETE FROM contacts WHERE id = ?')
+    .bind(c.req.param('id')).run();
+  return c.body(null, 204);
+});
