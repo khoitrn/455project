@@ -3,7 +3,7 @@ export const ui = /* html */`<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Contacts Book — CSCE 455</title>
+  <title>Contacts Book — ISTM 455</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans">
@@ -12,7 +12,7 @@ export const ui = /* html */`<!DOCTYPE html>
   <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
     <div>
       <h1 class="text-2xl font-bold text-slate-800">📒 Contacts Book</h1>
-      <p class="text-xs text-slate-400 mt-0.5">455project.khoitrn.com · CSCE 455</p>
+      <p class="text-xs text-slate-400 mt-0.5">455project.khoitrn.com · ISTM 455</p>
     </div>
     <button onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
       + Add Contact

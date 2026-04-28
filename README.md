@@ -1,4 +1,4 @@
-# Contacts Book API — CSCE 455
+# Contacts Book API — ISTM 455
 
 A minimal REST API for managing contacts, built with Node.js, Express, and SQLite. Served over HTTPS with a self-signed certificate.
 
