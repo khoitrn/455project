@@ -1,7 +1,7 @@
 {
   "name": "455project",
   "version": "1.0.0",
-  "description": "Contacts Book REST API — CSCE 455",
+  "description": "Contacts Book REST API — ISTM 455",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
